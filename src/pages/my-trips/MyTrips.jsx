@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/common/Navbar";
 import { MyTripCard } from "@/components/user-trip/MyTripCard";
-import { db } from "@/service/firebaseConfig";
+import { db, auth } from "@/service/firebaseConfig";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -15,15 +15,22 @@ export const MyTrips = () => {
       return;
     }
 
+    // Use Firebase UID for the query (aligns with Firestore security rules)
+    const currentUser = auth.currentUser;
+    const uid = currentUser?.uid || user?.uid;
+
+    if (!uid) {
+      navigate("/");
+      return;
+    }
+
     const q = query(
       collection(db, "trips"),
-      where("userEmail", "==", user?.email)
+      where("userId", "==", uid)
     );
     const querySnapshot = await getDocs(q);
     setUserTrips([]);
     querySnapshot.forEach((doc) => {
-      // doc.data() is never undefined for query doc snapshots
-      //   console.log(doc.id, " => ", doc.data());
       setUserTrips((prev) => [...prev, doc.data()]);
     });
   };

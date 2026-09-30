@@ -16,10 +16,9 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 import { FcGoogle } from "react-icons/fc";
-import { useGoogleLogin } from "@react-oauth/google";
-import axios from "axios";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "@/service/firebaseConfig";
+import { db, auth } from "@/service/firebaseConfig";
 import { Loading } from "@/components/common/Loading";
 import { useNavigate } from "react-router-dom";
 
@@ -117,13 +116,35 @@ export const CreateTrip = () => {
     handleInputChange("location", location);
   };
 
-  const handleLogin = useGoogleLogin({
-    onSuccess: (response) => GetUserProfile(response),
-    onError: (error) => {
-      console.error("Google login error:", error);
+  const handleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      console.log("Firebase user:", user);
+      console.log("Firebase UID:", user.uid);
+      console.log("Firebase email:", user.email);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        })
+      );
+
+      setOpenDialog(false);
+
+      // Now that auth is confirmed, proceed with trip generation
+      await generateTrip();
+    } catch (error) {
+      console.error("Firebase Google login error:", error);
       toast("Google login failed.");
-    },
-  });
+    }
+  };
 
   const generateTrip = async () => {
     const user = localStorage.getItem("user");
@@ -254,17 +275,15 @@ Budget: ${formData.budget}
     const docId = Date.now().toString();
 
     try {
-      const userString = localStorage.getItem("user");
+      // Step 8: Check Firebase Auth before saving
+      const firebaseUser = auth.currentUser;
 
-      if (!userString) {
-        throw new Error("User is not logged in.");
+      if (!firebaseUser) {
+        console.error("No Firebase user is logged in");
+        throw new Error("No Firebase user is logged in.");
       }
 
-      const user = JSON.parse(userString);
-
-      if (!user?.email) {
-        throw new Error("User email is missing.");
-      }
+      console.log("Saving trip for UID:", firebaseUser.uid);
 
       if (!tripData) {
         throw new Error("Trip data is empty.");
@@ -273,14 +292,17 @@ Budget: ${formData.budget}
       console.log("================================");
       console.log("SAVING TRIP");
       console.log("Document ID:", docId);
-      console.log("User:", user.email);
+      console.log("User UID:", firebaseUser.uid);
+      console.log("User email:", firebaseUser.email);
       console.log("Trip data:", tripData);
       console.log("================================");
 
+      // Step 9: Include userId (UID) alongside userEmail for Firestore rules
       await setDoc(doc(db, "trips", docId), {
         userSelection: formData,
         tripData: tripData,
-        userEmail: user.email,
+        userId: firebaseUser.uid,
+        userEmail: firebaseUser.email,
         id: docId,
       });
 
@@ -305,48 +327,7 @@ Budget: ${formData.budget}
     }
   };
 
-  const GetUserProfile = (tokenInfo) => {
-    console.log(
-      "Google token:",
-      tokenInfo
-    );
 
-    axios
-      .get(
-        `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`,
-        {
-          headers: {
-            Authorization: `Bearer ${tokenInfo?.access_token}`,
-            Accept: "Application/json",
-          },
-        }
-      )
-      .then((response) => {
-        console.log(
-          "Google user:",
-          response.data
-        );
-
-        localStorage.setItem(
-          "user",
-          JSON.stringify(response.data)
-        );
-
-        setOpenDialog(false);
-
-        generateTrip();
-      })
-      .catch((error) => {
-        console.error(
-          "Google profile error:",
-          error
-        );
-
-        toast(
-          "Unable to get Google profile."
-        );
-      });
-  };
 
   return (
     <>

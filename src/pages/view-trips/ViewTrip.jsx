@@ -13,15 +13,26 @@ export const ViewTrip = () => {
   const { tripId } = useParams();
   const [tripData, setTripData] = useState([]);
   const getTripData = async () => {
-    const docRef = doc(db, "trips", tripId);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      console.log("Document data:", docSnap.data());
-      setTripData(docSnap.data());
-    } else {
-      // docSnap.data() will be undefined in this case
-      console.log("No such document!");
-      toast("No Trip Found");
+    try {
+      if (!tripId) return;
+
+      const docRef = doc(db, "trips", tripId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        console.log("Document data:", docSnap.data());
+        setTripData(docSnap.data());
+      } else {
+        console.log("No such document!");
+        toast.error("No Trip Found");
+      }
+    } catch (error) {
+      console.error(
+        "FIRESTORE READ ERROR:",
+        error.code,
+        error.message
+      );
+      toast.error("Unable to load trip");
     }
   };
   useEffect(() => {
