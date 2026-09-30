@@ -147,7 +147,7 @@ export const CreateTrip = () => {
   };
 
   const generateTrip = async () => {
-    const user = localStorage.getItem("user");
+    const user = auth.currentUser;
 
     if (!user) {
       setOpenDialog(true);
@@ -303,6 +303,7 @@ Budget: ${formData.budget}
         tripData: tripData,
         userId: firebaseUser.uid,
         userEmail: firebaseUser.email,
+        isPublic: false,
         id: docId,
       });
 
